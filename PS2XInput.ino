@@ -48,7 +48,13 @@ void setup() {
 
 void loop() {
   // Read state
-  psx.read();
+  if (!psx.read()){
+    XInput.releaseAll();
+    XInput.send();
+    delay(1);
+    return;
+  }
+  const byte protocol = psx.getProtocol();
   bool state_A = psx.buttonPressed(PSB_CROSS);
   bool state_B = psx.buttonPressed(PSB_CIRCLE);
   bool state_X = psx.buttonPressed(PSB_SQUARE);
@@ -69,7 +75,7 @@ void loop() {
   // Set Joystick
   byte x, y;
   if (psx.getLeftAnalog(x, y)) {
-    if (abs(x - ANALOG_CENTER) < JOY_DEADZONE && abs(y - ANALOG_CENTER) < JOY_DEADZONE) {
+    if (abs(x - ANALOG_CENTER) < JOY_DEADZONE && abs(y - ANALOG_CENTER) < JOY_DEADZONE && protocol != PSPROTO_NEGCON) {
       x = ANALOG_CENTER;
       y = ANALOG_CENTER;
     }
@@ -98,12 +104,24 @@ void loop() {
   XInput.setButton(BUTTON_START, state_START);
   XInput.setButton(BUTTON_L3, state_L3);
   XInput.setButton(BUTTON_R3, state_R3);
-    if (state_DpadD && state_DpadL && state_DpadR){
+
+  // SOCD
+  if (state_DpadD && state_DpadU){
     state_DpadD = false;
+    state_DpadU = false;
+  }
+  if (state_DpadL && state_DpadR){
     state_DpadL = false;
     state_DpadR = false;
   }
   XInput.setDpad(state_DpadU, state_DpadD, state_DpadL, state_DpadR);
+
+  if (protocol == PSPROTO_NEGCON){
+    XInput.setTrigger(TRIGGER_RIGHT, psx.getAnalogButton(PSAB_CROSS)); XInput.setButton(BUTTON_A, state_B);
+    XInput.setTrigger(TRIGGER_LEFT, psx.getAnalogButton(PSAB_SQUARE)); XInput.setButton(BUTTON_X, false);
+    XInput.setJoystickX(JOY_RIGHT, psx.getAnalogButton(PSAB_L1)/2 + 127); XInput.setButton(BUTTON_LB, false);
+    XInput.setButton(BUTTON_B, state_Y); XInput.setButton(BUTTON_Y, false);
+  }
 
   // Send
   XInput.send();
