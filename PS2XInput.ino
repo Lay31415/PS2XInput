@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License along with thi
 ////////////////////
 
 // Define this if you need to change the ATT pin
-// #define PIN_PS2_ATT 10
+#define PIN_PS2_ATT 10
 
 // Define these pins if not using HW SPI
 // #define PIN_PS2_CLK 13
@@ -28,33 +28,60 @@ You should have received a copy of the GNU General Public License along with thi
 #if defined(PIN_PS2_CLK) && defined(PIN_PS2_DAT) && defined(PIN_PS2_CMD)
     // Use BitBang mode if all pins are defined
     #include <PsxControllerBitBang.h>
-    #ifndef PIN_PS2_ATT
-        #define PIN_PS2_ATT 10  // Set default value for ATT pin if undefined
-    #endif
     PsxControllerBitBang<PIN_PS2_ATT, PIN_PS2_CMD, PIN_PS2_DAT, PIN_PS2_CLK> psx;
 #else
     // Use SPI mode if some pins are undefined
     #include <PsxControllerHwSpi.h>
-    #ifndef PIN_PS2_ATT
-        #define PIN_PS2_ATT 10  // Set default value for ATT pin if undefined
-    #endif
     PsxControllerHwSpi<PIN_PS2_ATT> psx;
 #endif
 
-// Function Analog stick value
+// Analog stick settings
 ////////////////////
-#define JOY_DEADZONE 32   // Disabled at 0
+#define JOY_DEADZONE 32   // Set to 0 to disable deadzone
 #define ANALOG_MIN 0
 #define ANALOG_MAX 255
-const byte ANALOG_CENTER = (ANALOG_MAX - ANALOG_MIN) / 2;
+#define ANALOG_CENTER ((ANALOG_MAX - ANALOG_MIN) / 2)
+
+// Mode
+////////////////////
+enum DpadMode {DPAD_MODE, LEFT_STICK_MODE, RIGHT_STICK_MODE, DPAD_MODE_COUNT};
+DpadMode currentDpadMode;
+
+// EEPROM address for saving settings
+#define EEPROM_DPAD_MODE_ADDR 1
+
+void saveDpadMode() {
+  // Validate mode
+  if (currentDpadMode >= DPAD_MODE_COUNT) {
+    currentDpadMode = DPAD_MODE;
+  }
+  
+  // Save to EEPROM
+  EEPROM.put(EEPROM_DPAD_MODE_ADDR, currentDpadMode);
+  
+  // Reset controller state
+  resetState();
+  
+  // Visual feedback
+  flash_LED();
+}
+
+void loadDpadMode() {
+  // Read from EEPROM
+  EEPROM.get(EEPROM_DPAD_MODE_ADDR, currentDpadMode);
+  
+  // Validate
+  if (currentDpadMode >= DPAD_MODE_COUNT) {
+    currentDpadMode = DPAD_MODE;
+  }
+}
+
 
 // LED Config
 ////////////////////
 #define LED_R A1
 #define LED_G A3
 #define LED_B A2
-enum Dpad {DPAD, LS, RS, DPAD_LEN};
-byte dpad;
 
 void blank_LED() {
   digitalWrite(LED_R, LOW);
@@ -64,11 +91,11 @@ void blank_LED() {
 
 void show_LED() {
   digitalWrite(LED_B, HIGH);
-  switch (dpad) {
-    case LS:
+  switch (currentDpadMode) {
+    case LEFT_STICK_MODE:
       digitalWrite(LED_G, HIGH);
       break;
-    case RS:
+    case RIGHT_STICK_MODE:
       digitalWrite(LED_R, HIGH);
       break;
   }
@@ -84,15 +111,19 @@ void flash_LED() {
   }
   delay(500);
   blank_LED();
-  return;
+}
+
+void resetState(){
+  // Reset state
+  XInput.releaseAll();
+  XInput.send();
+  delay(1);
 }
 
 // Main
 ////////////////////
 void setup() {
-  // Read savedata
-  EEPROM.get(1, dpad);
-  if (dpad >= DPAD_LEN) dpad = 0;
+  loadDpadMode();
 
   pinMode(LED_R, OUTPUT);
   pinMode(LED_G, OUTPUT);
@@ -108,9 +139,7 @@ void setup() {
 void loop() {
   // Read state
   if (!psx.read()){
-    XInput.releaseAll();
-    XInput.send();
-    delay(1);
+    resetState();
     return;
   }
   const byte protocol = psx.getProtocol();
@@ -135,35 +164,20 @@ void loop() {
   // Mode
   if (state_Sl && state_St) {
     show_LED();
-  } else {
-    blank_LED();
-  }
-  // Dpad select
-  ////////////////////
-  if (state_Sl && state_St) {
     if (!state_DpadU && state_DpadL && !state_DpadD && !state_DpadR){
-      dpad = DPAD;
+      currentDpadMode = DPAD_MODE;
+      saveDpadMode();
     }
     if (!state_DpadU && !state_DpadL && state_DpadD && !state_DpadR){
-      dpad = LS;
+      currentDpadMode = LEFT_STICK_MODE;
+      saveDpadMode();
     }
     if (!state_DpadU && !state_DpadL && !state_DpadD && state_DpadR){
-      dpad = RS;
+      currentDpadMode = RIGHT_STICK_MODE;
+      saveDpadMode();
     }
-    if (dpad >= DPAD_LEN) dpad = 0;
-
-    if ((state_DpadL || state_DpadD || state_DpadR) && !(state_DpadL && state_DpadD && state_DpadR)){
-      // Reset state
-      XInput.releaseAll();
-      XInput.send();
-      delay(1);
-
-      // mode save
-      EEPROM.put(1, dpad);
-
-      // LED flashes according to the selected mode
-      flash_LED();
-    }
+  } else {
+    blank_LED();
   }
 
   // Set Joystick
@@ -210,17 +224,17 @@ void loop() {
   }
 
   // Set Dpad
-  switch (dpad) {
-    case DPAD:
+  switch (currentDpadMode) {
+    case DPAD_MODE:
       XInput.setDpad(state_DpadU, state_DpadD, state_DpadL, state_DpadR);
       break;
-    case LS:
+    case LEFT_STICK_MODE:
       if(state_DpadU) XInput.setJoystickY(JOY_LEFT, ANALOG_MIN, true);
       if(state_DpadD) XInput.setJoystickY(JOY_LEFT, ANALOG_MAX, true);
       if(state_DpadL) XInput.setJoystickX(JOY_LEFT, ANALOG_MIN);
       if(state_DpadR) XInput.setJoystickX(JOY_LEFT, ANALOG_MAX);
       break;
-    case RS:
+    case RIGHT_STICK_MODE:
       if(state_DpadU) XInput.setJoystickY(JOY_RIGHT, ANALOG_MIN, true);
       if(state_DpadD) XInput.setJoystickY(JOY_RIGHT, ANALOG_MAX, true);
       if(state_DpadL) XInput.setJoystickX(JOY_RIGHT, ANALOG_MIN);
