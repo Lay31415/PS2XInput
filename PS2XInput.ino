@@ -230,15 +230,19 @@ void loop() {
       break;
     case LEFT_STICK_MODE:
       if(state_DpadU) XInput.setJoystickY(JOY_LEFT, ANALOG_MIN, true);
-      if(state_DpadD) XInput.setJoystickY(JOY_LEFT, ANALOG_MAX, true);
+      else if(state_DpadD) XInput.setJoystickY(JOY_LEFT, ANALOG_MAX, true);
+      else XInput.setJoystickY(JOY_LEFT, ANALOG_CENTER);
       if(state_DpadL) XInput.setJoystickX(JOY_LEFT, ANALOG_MIN);
-      if(state_DpadR) XInput.setJoystickX(JOY_LEFT, ANALOG_MAX);
+      else if(state_DpadR) XInput.setJoystickX(JOY_LEFT, ANALOG_MAX);
+      else XInput.setJoystickX(JOY_LEFT, ANALOG_CENTER);
       break;
     case RIGHT_STICK_MODE:
       if(state_DpadU) XInput.setJoystickY(JOY_RIGHT, ANALOG_MIN, true);
-      if(state_DpadD) XInput.setJoystickY(JOY_RIGHT, ANALOG_MAX, true);
+      else if(state_DpadD) XInput.setJoystickY(JOY_RIGHT, ANALOG_MAX, true);
+      else XInput.setJoystickY(JOY_RIGHT, ANALOG_CENTER);
       if(state_DpadL) XInput.setJoystickX(JOY_RIGHT, ANALOG_MIN);
-      if(state_DpadR) XInput.setJoystickX(JOY_RIGHT, ANALOG_MAX);
+      else if(state_DpadR) XInput.setJoystickX(JOY_RIGHT, ANALOG_MAX);
+      else XInput.setJoystickX(JOY_RIGHT, ANALOG_CENTER);
       break;
   }
 
