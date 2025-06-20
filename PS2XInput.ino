@@ -257,7 +257,7 @@ void loop() {
     XInput.setButton(BUTTON_X, false);
     
     // NeGcon L -> XInput RX+
-    XInput.setJoystickX(JOY_RIGHT, psx.getAnalogButton(PSAB_L1)/2 + 127);
+    XInput.setJoystickX(JOY_RIGHT, psx.getAnalogButton(PSAB_L1)/2 + ANALOG_CENTER);
     XInput.setButton(BUTTON_LB, false);
 
     // NeGcon B -> XInput B
